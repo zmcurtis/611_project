@@ -1,0 +1,208 @@
+---
+title: "611 Project--Wine Quality Analysis"
+author: "Zoe Curtis"
+date: "2025-09-30"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+#setwd("/Users/zcurtis/Library/CloudStorage/OneDrive-UniversityofNorthCarolinaatChapelHill/bios 611/611_project")
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+
+white<-read.csv("winequality-white.csv", sep=';')%>%
+  mutate(type="white")%>%
+  select(type, everything())
+red<-read.csv("winequality-red.csv", sep=';')%>%
+  mutate(type="red")%>%
+  select(type,everything())
+
+#check matching vars before merging 
+sum(names(red)==names(white))
+
+allwine<-rbind(white,red)
+
+#pivot data 
+pivwine<-allwine%>%
+  pivot_longer(cols=2:13, names_to="quality", values_to="value")
+
+#some summary data at a glance 
+summary(red)
+summary(white)
+``` 
+
+``` {r exploratory, include=FALSE}}
+#thinking: want to see how these qualities vary for red vs white wine
+#or: more interesting, could look at just white wine and try to cluster and see if you can pick out types of white wine 
+
+#some visualization 
+fixacid<-allwine%>%
+  group_by(type)%>%
+  ggplot(aes(x=fixed.acidity, fill=type))+
+  geom_bar()
+#red wine has more data points in the far acidic range 
+
+ressug<-allwine%>%
+  group_by(type)%>%
+  ggplot(aes(x=log(residual.sugar), fill=type))+
+  geom_bar() #may wanna log 
+
+volac<-allwine%>%
+  group_by(type)%>%
+  ggplot(aes(x=log(volatile.acidity), fill=type))+
+  geom_bar() #may wanna log 
+
+alc<-allwine%>%
+  group_by(type)%>%
+  ggplot(aes(x=alcohol, fill=type))+
+  geom_bar() #may wanna log 
+
+#do for loop?
+for (i in names(allwine[,-1])){
+  allwine%>%
+    group_by(type)%>%
+    ggplot(aes_string(x=i, fill="type"))+
+    geom_histogram(position="dodge", bins=30)
+} #fix
+
+# for (i in names(allwine)) {
+#   if (is.numeric(allwine[[i]])) {
+#     p <- ggplot(allwine, aes_string(x = i, fill = "type")) +
+#       geom_histogram(position = "dodge", bins = 30)
+#   }
+# }
+
+#else {
+#     p <- ggplot(allwine, aes_string(x = i, fill = "type")) +
+#       geom_bar(position = "dodge")
+#   }
+#   p <- p + ggtitle(paste("Distribution of", i)) + theme_minimal()
+#   print(p)
+# }
+
+
+#exploring
+#white wine only pca
+results<-prcomp(white[-1], center=TRUE, scale=TRUE)
+
+
+screeplot(results, type="line") #elbow at 2
+
+scores <- as.data.frame(results$x[,1:2])
+scores$type <- white$type 
+
+ggplot(scores, aes(x = PC1, y = PC2)) +
+  geom_point(size = 1.5) +
+  #geom_text_repel(size = 3, max.overlaps = 50, color = "navy") +
+  theme_minimal() 
+
+mycor<-cor(white[,-1])
+corrplot(mycor, type = "upper", order = "hclust", tl.col = "black")
+
+#red wine only pca 
+results<-prcomp(red[-1], center=TRUE, scale=TRUE)
+
+
+screeplot(results, type="line")
+
+scores <- as.data.frame(results$x[,1:2])
+scores$type <- red$type 
+
+ggplot(scores, aes(x = PC1, y = PC2)) +
+  geom_point(size = 1.5) +
+  #geom_text_repel(size = 3, max.overlaps = 50, color = "navy") +
+  theme_minimal() 
+
+mycor<-cor(red[,-1])
+corrplot(mycor, type = "upper", order = "hclust", tl.col = "black")
+
+pcs<-as.data.frame(results$rotation)[,1:2]
+pcs
+
+#all wine pca
+results<-prcomp(allwine[-1], center=TRUE, scale=TRUE)
+rx <- results$x
+rx_df <- as_tibble(rx) %>%
+  mutate(row = row_number()) %>%
+  pivot_longer(cols = -row, names_to = "pc", values_to = "value") %>%
+  mutate(pc = suppressWarnings(as.numeric(gsub("^[^0-9]*", "", pc))))
+ggplot(rx_df, aes(x = pc, y = row, fill = value)) +
+       geom_raster() +
+       scale_y_reverse() +
+       coord_fixed() +
+       scale_fill_viridis_c(option = "C") +
+       labs(x = "PC", y = "Row", fill = "Score")
+summary(results)
+
+screeplot(results, type="line")
+
+scores <- as.data.frame(results$x[,1:2])
+scores$type <- allwine$type 
+
+ggplot(scores, aes(x = PC1, y = PC2)) +
+  geom_point(size = 1.5) +
+  #geom_text_repel(size = 3, max.overlaps = 50, color = "navy") +
+  theme_minimal() 
+
+mycor<-cor(allwine[,-1])
+corrplot(mycor, type = "upper", order = "hclust", tl.col = "black")
+
+pcs<-as.data.frame(results$rotation)[,1:2]
+pcs
+
+#pc1 is wines with low sulfur dioxide and residual sugars, high acidity
+#pc2 is wines with high density, acidity, sugar, chlorides
+
+
+#maybe keep first three PCs.....
+#do clustering?
+#for loops for visualization
+
+
+```
+
+```{r visualization, include=TRUE}
+mycor<-cor(allwine[-1])
+corrplot(mycor, type = "upper", order = "hclust", tl.col = "black") #we can see taht density and alcohol are highly negatively correlated 
+```
+
+```{r PCA, include=TRUE}
+
+```
+
+```{r clustering, include=TRUE}
+
+```
+
+```{r alc regression}
+#maybe look into predicting alcohol with other vars? 
+library(glmnet)
+y<-as.matrix(allwine$alcohol)
+x<-as.matrix(allwine%>%select(-alcohol))
+cv_model <- cv.glmnet(x, y, alpha = 1)
+
+#find optimal lambda value that minimizes test MSE
+best_lambda <- cv_model$lambda.min
+best_lambda
+
+best_model <- glmnet(x, y, alpha = 1, lambda = best_lambda)
+coef(best_model)
+
+#my best predictors are volatile acidity, pH and sulphates, interesting!!
+
+y_predicted <- predict(best_model, s = best_lambda, newx = x)
+
+#find SST and SSE
+sst <- sum((y - mean(y))^2)
+sse <- sum((y_predicted - y)^2)
+
+#find R-Squared
+rsq <- 1 - sse/sst
+rsq
+
+#make predictions? and plots? artificially change some predictor var, and then plot them with varying other explanatory var, put predicted alc on y 
+```
+
