@@ -8,10 +8,13 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-#setwd("/Users/zcurtis/Library/CloudStorage/OneDrive-UniversityofNorthCarolinaatChapelHill/bios 611/611_project")
+setwd("/Users/zcurtis/Library/CloudStorage/OneDrive-UniversityofNorthCarolinaatChapelHill/bios 611/611_project")
 library(tidyr)
 library(dplyr)
 library(ggplot2)
+library(corrplot)
+library(glmnet) #maybe
+library(ggrepel) #maybe
 
 white<-read.csv("winequality-white.csv", sep=';')%>%
   mutate(type="white")%>%
@@ -39,34 +42,73 @@ summary(white)
 #or: more interesting, could look at just white wine and try to cluster and see if you can pick out types of white wine 
 
 #some visualization 
-fixacid<-allwine%>%
-  group_by(type)%>%
-  ggplot(aes(x=fixed.acidity, fill=type))+
-  geom_bar()
-#red wine has more data points in the far acidic range 
+#make bar charts (proportion per type of wine) for each explantory variable to get a feel 
+library(ggplot2)
+library(dplyr)
+library(tidyr)
 
-ressug<-allwine%>%
-  group_by(type)%>%
-  ggplot(aes(x=log(residual.sugar), fill=type))+
-  geom_bar() #may wanna log 
+# Step 1: Reshape data (pivot all numeric columns except 'type')
+# Assuming your first column is 'type' (wine type: red/white)
+# If your type column has a different name, replace "type" accordingly
 
-volac<-allwine%>%
-  group_by(type)%>%
-  ggplot(aes(x=log(volatile.acidity), fill=type))+
-  geom_bar() #may wanna log 
+long_wine <- allwine %>%
+  pivot_longer(cols = -type, names_to = "variable", values_to = "value")
 
-alc<-allwine%>%
-  group_by(type)%>%
-  ggplot(aes(x=alcohol, fill=type))+
-  geom_bar() #may wanna log 
+ggplot(long_wine, aes(x = value, fill = type, group = type)) +
+  geom_histogram(
+    aes(y = after_stat(count / sum(count))),
+    bins = 30,
+    alpha = 0.7,
+    position = "dodge"
+  ) +
+  facet_wrap(~ variable, scales = "free_x") +  
+  labs(
+    y = "Proportion within wine type",
+    x = "Value",
+    title = "Distribution of Wine Characteristics by Type"
+  ) +
+  theme_minimal() +
+  theme(strip.text = element_text(face = "bold"))
 
-#do for loop?
-for (i in names(allwine[,-1])){
-  allwine%>%
-    group_by(type)%>%
-    ggplot(aes_string(x=i, fill="type"))+
-    geom_histogram(position="dodge", bins=30)
-} #fix
+#try something else: 
+long_white <- white %>%
+  pivot_longer(cols = -type, names_to = "variable", values_to = "value")
+
+ggplot(long_white, aes(x = value, fill = type, group = type)) +
+  geom_histogram(
+    aes(y = after_stat(count / sum(count))),
+    bins = 30,
+    alpha = 0.7,
+    position = "dodge"
+  ) +
+  facet_wrap(~ variable, scales = "free_x") +  
+  labs(
+    y = "Proportion within wine type",
+    x = "Value",
+    title = "Distribution of Wine Characteristics by Type"
+  ) +
+  theme_minimal() +
+  theme(strip.text = element_text(face = "bold"))
+
+long_red <- red %>%
+  pivot_longer(cols = -type, names_to = "variable", values_to = "value")
+
+ggplot(long_red, aes(x = value, fill = type, group = type)) +
+  geom_histogram(
+    aes(y = after_stat(count / sum(count))),
+    bins = 30,
+    alpha = 0.7,
+    position = "dodge"
+  ) +
+  facet_wrap(~ variable, scales = "free_x") +  
+  labs(
+    y = "Proportion within wine type",
+    x = "Value",
+    title = "Distribution of Wine Characteristics by Type"
+  ) +
+  theme_minimal() +
+  theme(strip.text = element_text(face = "bold"))
+
 
 # for (i in names(allwine)) {
 #   if (is.numeric(allwine[[i]])) {
@@ -106,7 +148,7 @@ corrplot(mycor, type = "upper", order = "hclust", tl.col = "black")
 results<-prcomp(red[-1], center=TRUE, scale=TRUE)
 
 
-screeplot(results, type="line")
+screeplot(results, type="line") #no good elbow
 
 scores <- as.data.frame(results$x[,1:2])
 scores$type <- red$type 
@@ -129,30 +171,56 @@ rx_df <- as_tibble(rx) %>%
   mutate(row = row_number()) %>%
   pivot_longer(cols = -row, names_to = "pc", values_to = "value") %>%
   mutate(pc = suppressWarnings(as.numeric(gsub("^[^0-9]*", "", pc))))
+
 ggplot(rx_df, aes(x = pc, y = row, fill = value)) +
        geom_raster() +
        scale_y_reverse() +
        coord_fixed() +
        scale_fill_viridis_c(option = "C") +
-       labs(x = "PC", y = "Row", fill = "Score")
+       labs(x = "PC", y = "Row", fill = "Score") # bad, fix
 summary(results)
 
-screeplot(results, type="line")
+# Better scree plot
+var_explained <- results$sdev^2 / sum(results$sdev^2)
+scree_df <- data.frame(
+  PC = 1:length(var_explained),
+  Variance = var_explained
+)
+
+ggplot(scree_df, aes(x = PC, y = Variance)) +
+  geom_line() +
+  geom_point() +
+  labs(
+    title = "Scree Plot: Variance Explained by Each PC",
+    y = "Proportion of Variance Explained"
+  ) +
+  scale_x_continuous(breaks = 1:ncol(allwine[-1])) +
+  theme_minimal()
 
 scores <- as.data.frame(results$x[,1:2])
 scores$type <- allwine$type 
 
-ggplot(scores, aes(x = PC1, y = PC2)) +
+ggplot(scores, aes(x = PC1, y = PC2, color=type)) +
   geom_point(size = 1.5) +
   #geom_text_repel(size = 3, max.overlaps = 50, color = "navy") +
   theme_minimal() 
 
 mycor<-cor(allwine[,-1])
-corrplot(mycor, type = "upper", order = "hclust", tl.col = "black")
-
+corrplot(mycor, type = "upper", order = "hclust", tl.col = "black") #alcohol and density highly NEGATIVELY correlated, makes sense
+#total sulfur dioxide and free sulfur dioxide also highly correlated, makes sense
 pcs<-as.data.frame(results$rotation)[,1:2]
 pcs
 
+loadings <- as.data.frame(results$rotation[, 1:2])
+loadings$variable <- rownames(loadings)
+
+ggplot(loadings, aes(x = PC1, y = PC2, label = variable)) +
+  geom_point(color = "darkseagreen4", size = 3) +
+  geom_text_repel(aes(label = variable), size = 3) +
+  labs(title = "PCA Loadings: Contribution of Variables to PC1 & PC2") +
+  theme_minimal() +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "gray50")
 #pc1 is wines with low sulfur dioxide and residual sugars, high acidity
 #pc2 is wines with high density, acidity, sugar, chlorides
 
@@ -165,21 +233,93 @@ pcs
 ```
 
 ```{r visualization, include=TRUE}
-mycor<-cor(allwine[-1])
-corrplot(mycor, type = "upper", order = "hclust", tl.col = "black") #we can see taht density and alcohol are highly negatively correlated 
+# Reshape data
+long_wine <- allwine %>%
+  pivot_longer(cols = -c(type, quality), names_to = "variable", values_to = "value")
+
+# Plot density (smoothed distribution)
+ggplot(long_wine, aes(x = value, fill = type)) +
+  geom_density(
+    alpha = 0.6,
+    position = "identity"
+  ) +
+  facet_wrap(~ variable, scales = "free") +   # ← Changed from "free_x" to "free"
+  labs(
+    y = "Density",
+    x = "Value",
+    title = "Distribution of Wine Characteristics by Type"
+  ) +
+  theme_minimal() +
+  theme(strip.text = element_text(face = "bold"))
 ```
+From this, we can see initially that red wines may have a higher pH, sulfates, and volatile acidity than white wines. White wines may have more variation in residual sugar and higher  sulfur dioxide than red wines.   
+```{r corplot}
+# Correlation matrix
+mycor <- cor(allwine[,-1])
+corrplot(mycor, type = "upper", order = "hclust", tl.col = "black")
+```
+We can see here that alcohol and density are highly NEGATIVELY correlated, makes sense since the higher the alcohol content, the lower the density.   
+  
+Additionally, total sulfur dioxide and free sulfur dioxide also highly correlated, which makes sense because they are different measures of the same thing. Moving forward, we could keep one, since using two highly correlated variables in many analyses is an issue.    
 
 ```{r PCA, include=TRUE}
+results<-prcomp(allwine[-1], center=TRUE, scale=TRUE)
+rx <- results$x
+rx_df <- as_tibble(rx) %>%
+  mutate(row = row_number()) %>%
+  pivot_longer(cols = -row, names_to = "pc", values_to = "value") %>%
+  mutate(pc = suppressWarnings(as.numeric(gsub("^[^0-9]*", "", pc))))
 
+summary(results)
+
+var_explained <- results$sdev^2 / sum(results$sdev^2)
+scree_df <- data.frame(
+  PC = 1:length(var_explained),
+  Variance = var_explained
+)
+
+ggplot(scree_df, aes(x = PC, y = Variance)) +
+  geom_line() +
+  geom_point() +
+  labs(
+    title = "Scree Plot: Variance Explained by Each PC",
+    y = "Proportion of Variance Explained"
+  ) +
+  scale_x_continuous(breaks = 1:ncol(allwine[-1])) +
+  theme_minimal()
+
+scores <- as.data.frame(results$x[,1:2])
+scores$type <- allwine$type 
+
+ggplot(scores, aes(x = PC1, y = PC2, color=type)) +
+  geom_point(size = 1.5) +
+  #geom_text_repel(size = 3, max.overlaps = 50, color = "navy") +
+  theme_minimal() 
+
+pcs<-as.data.frame(results$rotation)[,1:2]
+pcs
+
+loadings <- as.data.frame(results$rotation[, 1:2])
+loadings$variable <- rownames(loadings)
+
+ggplot(loadings, aes(x = PC1, y = PC2, label = variable)) +
+  geom_point(color = "darkseagreen4", size = 3) +
+  geom_text_repel(aes(label = variable), size = 3) +
+  labs(title = "PCA Loadings: Contribution of Variables to PC1 & PC2") +
+  theme_minimal() +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "gray50")
 ```
 
 ```{r clustering, include=TRUE}
-
+#use kmeans to tease out clusters in the data 
+library(cluster)
+clusGap(allwine[,-1], kmeans, K.max=4, nstart=20, iter.max=40)
 ```
 
 ```{r alc regression}
 #maybe look into predicting alcohol with other vars? 
-library(glmnet)
+#maybe use the pca from earlier 
 y<-as.matrix(allwine$alcohol)
 x<-as.matrix(allwine%>%select(-alcohol))
 cv_model <- cv.glmnet(x, y, alpha = 1)
@@ -205,4 +345,16 @@ rsq
 
 #make predictions? and plots? artificially change some predictor var, and then plot them with varying other explanatory var, put predicted alc on y 
 ```
+About 80% of the variation in alcohol level can be predicted by ....   
+```{r}
+#predict type? see what helps there?
+allwine$type<-as.factor(allwine$type)
+typereg<-glm(type~fixed.acidity+volatile.acidity+citric.acid+residual.sugar+chlorides+free.sulfur.dioxide+total.sulfur.dioxide+density+pH+alcohol+sulphates+quality, data=allwine, family="binomial")
+summary(typereg)
+#gives us everything but fixed acidity and pH) 
+#try with previous PCs? 
+typereg2<-glm(allwine$type~pcs$PC1, family="binomial") #figure this out 
+summary(typereg2)
+```
+
 
