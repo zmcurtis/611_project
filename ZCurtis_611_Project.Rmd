@@ -5,6 +5,11 @@ date: "2025-09-30"
 output:
   pdf_document: default
 ---
+# CONSIDER QUALITY SCORE -- include in analyses? use in separate analysis? maybe predict type with quality? 
+
+This analysis will explore a concatenated data set containing chemical components of red and white variants of the Portuguese "Vinho Verde" wine from 2009. It contains chemical components including fixed acidity, volatile acidity, citric acid, residual sugar, chlorides, free sulfur dioxide, total sulfur dioxide, density, pH, sulphates, and alcohol. It also contains a quality score. I am interested in exploring whether wine type (red vs white) differs in their chemical composition, and whether there is a quality difference between the types. 
+
+The data set was obtained at https://archive.ics.uci.edu/dataset/186/wine+quality. I downloaded the red and white data separately and concatenated them. Fortunately, there is no missing data and the data is fairly clean and ready for analysis. There is more white wine data than red wine data. 
 
 ```{r setup, include=FALSE}
 setwd("/Users/zcurtis/Library/CloudStorage/OneDrive-UniversityofNorthCarolinaatChapelHill/bios 611/611_project")
