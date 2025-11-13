@@ -8,7 +8,7 @@ PLOTS = figures/density_plot.png \
 
 # Source and output files
 RMD_FILE = ZCurtis_611_Project.Rmd
-REPORT = ZCurtis_611_project.pdf
+REPORT = ZCurtis_611_Project.html
 
 # Default target
 all: $(PLOTS)

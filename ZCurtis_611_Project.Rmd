@@ -3,7 +3,7 @@ title: "611 Project--Wine Quality Analysis"
 author: "Zoe Curtis"
 date: "2025-09-30"
 output:
-  pdf_document: default
+  html_document: default
 ---
 
 This analysis will explore a concatenated data set containing chemical components of red and white variants of the Portuguese "Vinho Verde" wine from 2009. It contains chemical components including fixed acidity, volatile acidity, citric acid, residual sugar, chlorides, free sulfur dioxide, total sulfur dioxide, density, pH, sulphates, and alcohol. It also contains a quality score. I am interested in exploring whether wine type (red vs white) differs in their chemical composition, and whether there is a quality difference between the types. I am also interested in using the chemical composition to predict alcohol levels.  
