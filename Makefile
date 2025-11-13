@@ -1,5 +1,10 @@
 # List of expected plot files
-PLOTS = 
+PLOTS = figures/density_plot.png \
+	figures/corplot.png \
+	figures/screeplot.png \
+	figures/pcplot.png \
+	figures/pcword.png \
+	figures/qualityprop.png
 
 # Source and output files
 RMD_FILE = ZCurtis_611_Project.Rmd

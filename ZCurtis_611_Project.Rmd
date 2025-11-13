@@ -5,20 +5,26 @@ date: "2025-09-30"
 output:
   pdf_document: default
 ---
-# CONSIDER QUALITY SCORE -- include in analyses? use in separate analysis? maybe predict type with quality? 
 
-This analysis will explore a concatenated data set containing chemical components of red and white variants of the Portuguese "Vinho Verde" wine from 2009. It contains chemical components including fixed acidity, volatile acidity, citric acid, residual sugar, chlorides, free sulfur dioxide, total sulfur dioxide, density, pH, sulphates, and alcohol. It also contains a quality score. I am interested in exploring whether wine type (red vs white) differs in their chemical composition, and whether there is a quality difference between the types. 
-
+This analysis will explore a concatenated data set containing chemical components of red and white variants of the Portuguese "Vinho Verde" wine from 2009. It contains chemical components including fixed acidity, volatile acidity, citric acid, residual sugar, chlorides, free sulfur dioxide, total sulfur dioxide, density, pH, sulphates, and alcohol. It also contains a quality score. I am interested in exploring whether wine type (red vs white) differs in their chemical composition, and whether there is a quality difference between the types. I am also interested in using the chemical composition to predict alcohol levels.  
+  
 The data set was obtained at https://archive.ics.uci.edu/dataset/186/wine+quality. I downloaded the red and white data separately and concatenated them. Fortunately, there is no missing data and the data is fairly clean and ready for analysis. There is more white wine data than red wine data. 
 
 ```{r setup, include=FALSE}
-setwd("/Users/zcurtis/Library/CloudStorage/OneDrive-UniversityofNorthCarolinaatChapelHill/bios 611/611_project")
+#setwd("/Users/zcurtis/Library/CloudStorage/OneDrive-UniversityofNorthCarolinaatChapelHill/bios 611/611_project")
 library(tidyr)
 library(dplyr)
 library(ggplot2)
 library(corrplot)
-library(glmnet) #maybe
-library(ggrepel) #maybe
+library(glmnet)
+library(ggrepel) 
+
+save_base_plot <- function(plot, filename, width = 8, height = 6, ...) {
+  dir.create("figures", showWarnings = FALSE)
+  png(file.path("figures", filename), width = width, height = height, units = "in", res = 150, ...)
+  on.exit(dev.off())
+  print(plot)
+}
 
 white<-read.csv("winequality-white.csv", sep=';')%>%
   mutate(type="white")%>%
@@ -47,7 +53,7 @@ long_wine <- allwine %>%
   pivot_longer(cols = -c(type, quality), names_to = "variable", values_to = "value")
 
 # Plot density (smoothed distribution)
-ggplot(long_wine, aes(x = value, fill = type)) +
+densall<-ggplot(long_wine, aes(x = value, fill = type)) +
   geom_density(
     alpha = 0.6,
     position = "identity"
@@ -60,12 +66,16 @@ ggplot(long_wine, aes(x = value, fill = type)) +
   ) +
   theme_minimal() +
   theme(strip.text = element_text(face = "bold"))
+save_base_plot(densall, "density_plot.png")
 ```
 From this, we can see initially that red wines may have a higher pH, sulfates, and volatile acidity than white wines. White wines may have more variation in residual sugar and higher  sulfur dioxide than red wines.   
 ```{r corplot}
 # Correlation matrix
 mycor <- cor(allwine[,-1])
+dir.create("figures", showWarnings = FALSE)
+png("figures/corplot.png", width = 8, height = 6, units = "in", res = 150)
 corrplot(mycor, type = "upper", order = "hclust", tl.col = "black")
+dev.off()
 ```
 We can see here that alcohol and density are highly NEGATIVELY correlated, makes sense since the higher the alcohol content, the lower the density.   
   
@@ -87,7 +97,7 @@ scree_df <- data.frame(
   Variance = var_explained
 )
 
-ggplot(scree_df, aes(x = PC, y = Variance)) +
+scre<-ggplot(scree_df, aes(x = PC, y = Variance)) +
   geom_line() +
   geom_point() +
   labs(
@@ -97,13 +107,16 @@ ggplot(scree_df, aes(x = PC, y = Variance)) +
   scale_x_continuous(breaks = 1:ncol(allwine[-1])) +
   theme_minimal()
 
+save_base_plot(scre, "screeplot.png") 
+
 scores <- as.data.frame(results$x[,1:2])
 scores$type <- allwine$type 
 
-ggplot(scores, aes(x = PC1, y = PC2, color=type)) +
+pcplot<-ggplot(scores, aes(x = PC1, y = PC2, color=type)) +
   geom_point(size = 1.5, alpha=0.3) +
   #geom_text_repel(size = 3, max.overlaps = 50, color = "navy") +
   theme_minimal() 
+save_base_plot(pcplot, "pcplot.png")
 ```
 I was planning to do kmeans if there was obvious clustering that appears, but as seen in this plot, there is overlap and not tight separate clusters in the data. 
 Red and white wines are distinct in terms of PC1, but not distinct in terms of PC2. There is much more overlap on the Y axis between the types. Thus PC1 captures more of the chemical differences in the types of wines. 
@@ -121,13 +134,14 @@ As red wines are fermented, this might make sense for them to have higher sulpha
 loadings <- as.data.frame(results$rotation[, 1:2])
 loadings$variable <- rownames(loadings)
 
-ggplot(loadings, aes(x = PC1, y = PC2, label = variable)) +
+pcword<-ggplot(loadings, aes(x = PC1, y = PC2, label = variable)) +
   geom_point(color = "darkseagreen4", size = 3) +
   geom_text_repel(aes(label = variable), size = 3) +
   labs(title = "PCA Loadings: Contribution of Variables to PC1 & PC2") +
   theme_minimal() +
   geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
   geom_vline(xintercept = 0, linetype = "dashed", color = "gray50")
+save_base_plot(pcword, "pcword.png")
 ```
 This plot is a more intuitive way of understanding the contributions of chemical compounds to the two PCs. We see PC1 has positive contributions from density, fixed acidity, chlorides, sulphates, and volatile acidity. PC2 on the other hand has positive contributions from every factor except quality, alcohol, and pH.   
 
@@ -156,3 +170,50 @@ print(rsq_test)
 ```
 An $R^2$ value of 0.823 indicates that about 83% of the variation in alcohol content can be predicted by the other numeric chemical properties. 
 
+I am now interested in investigating quality. I will look into if quality differs between red and white wines. 
+```{r quality}
+qualityprop<-ggplot(allwine, aes(x = quality, fill = type)) +
+  geom_bar(aes(y = after_stat(prop), group = type), position = "dodge")+
+  ylab("proportion")
+save_base_plot(qualityprop, "qualityprop.png")
+```
+There does not appear to be a huge difference in the quality ratings between red and white wines.   
+
+I will now do a regression (similar to what was done for alcohol) to see what chemical components are most influential on quality score. We do a LASSO to account for contributions when all predictors are included and because of multicollinearity.  
+```{r}
+set.seed(828)
+y<-allwine$quality
+x<-model.matrix(quality ~., data=allwine)
+n<-nrow(allwine)
+train_idx <- sample(1:n, 0.7 * n)
+xtrain<-x[train_idx, ]
+ytrain<-y[train_idx]
+xtest<-x[-train_idx, ]
+ytest<-y[-train_idx]
+
+#use training data for model 
+cv_model<-cv.glmnet(xtrain,ytrain)
+coef_best <- coef(cv_model, s = "lambda.min")
+nonzero <- round(coef_best[coef_best[,1] != 0, , drop=FALSE],3)
+print(nonzero)
+
+best_lambda <- cv_model$lambda.min
+#make predictions on test 
+y_pred_test <- predict(cv_model, s = best_lambda, newx = xtest)
+#calculate adj R^2 from test 
+p <- length(nonzero) - 1  # exclude intercept
+n_test <- length(ytest)
+# predictions
+y_pred_test <- predict(cv_model, s = best_lambda, newx = xtest)
+
+# compute R^2
+sse <- sum((ytest - y_pred_test)^2)
+sst <- sum((ytest - mean(ytest))^2)
+rsq_test <- 1 - sse/sst
+
+rsq_adj <- 1 - (1 - rsq_test) * (n_test - 1) / (n_test - p - 1)
+rsq_adj
+```
+The model does not capture much of the variation in the quality data (R^2=0.298), and most predictors have small coefficients at the optimal penalty (lambda). However, density has a coefficient of -113.496, thus  it has stronger negative influence on the quality response. Higher density wines thus have lower quality ratings.  
+  
+This exploration gives us an insight into how chemical components of wine are related to type of wine, alcohol, and quality. Further research could be done into if clusters can be found within red and white wines, rather than considering all of the wines together. Clustering could possibly tease aaprt different types of Vinho Verde, and it would be interesting to see what components are influential in differentiating them.   
