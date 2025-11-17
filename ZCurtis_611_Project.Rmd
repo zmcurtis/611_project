@@ -69,15 +69,45 @@ densall<-ggplot(long_wine, aes(x = value, fill = type)) +
 save_base_plot(densall, "density_plot.png")
 ```
 From this, we can see initially that red wines may have a higher pH, sulfates, and volatile acidity than white wines. White wines may have more variation in residual sugar and higher  sulfur dioxide than red wines.   
+
+# FIX ORDER OR VARS IN CORPLOTS!!!
 ```{r corplot}
 # Correlation matrix
 mycor <- cor(allwine[,-1])
 dir.create("figures", showWarnings = FALSE)
-png("figures/corplot.png", width = 8, height = 6, units = "in", res = 150)
+png("figures/corplot1.png", width = 8, height = 6, units = "in", res = 150)
 corrplot(mycor, type = "upper", order = "hclust", tl.col = "black")
+dev.off() 
+
+mycor2<-cor(white[,-1])
+dir.create("figures", showWarnings = FALSE)
+png("figures/corplotwhite.png", width = 8, height = 6, units = "in", res = 150)
+corrplot(mycor2, type = "upper", order = "hclust", tl.col = "black")
+dev.off()
+
+mycor3<-cor(red[,-1])
+dir.create("figures", showWarnings = FALSE)
+png("figures/corplotred.png", width = 8, height = 6, units = "in", res = 150)
+corrplot(mycor3, type = "upper", order = "hclust", tl.col = "black")
 dev.off()
 ```
-We can see here that alcohol and density are highly NEGATIVELY correlated, makes sense since the higher the alcohol content, the lower the density.   
+In the overall dataset, qe can see here that alcohol and density are highly NEGATIVELY correlated, makes sense since the higher the alcohol content, the lower the density. 
+
+Yet when we split by wine type, we see some slightly different correlations. In the white wine correlation plot, we also see that residual sugar and density are highly correlated, and that free sulfur dioxide and total sulfur dioxide and moderately positively correlated. 
+
+In the red wine correlation plot, fixed acidity and pH are highly negatively correlated, which makes sense, but it is curious that this does not appear in the white wine data set. It could be that white wines have higher or more basic acidity, so this trend is not being detected. 
+# FIND A BETTER WAY TO REPRESENT THIS, does not show what I predicted though 
+```{r}
+mean(red$fixed.acidity)
+mean(white$fixed.acidity)#lower acidity than red 
+mean(red$pH)
+mean(white$pH) #similar pHs though 
+range(red$fixed.acidity)
+range(white$fixed.acidity) #narrower range but not by much 
+range(red$pH)
+range(white$pH) #lower pH range, more acidic ... 
+```
+
   
 Additionally, total sulfur dioxide and free sulfur dioxide also highly correlated, which makes sense because they are different measures of the same thing. Moving forward, we could keep one, since using two highly correlated variables in many analyses is an issue.    
 
