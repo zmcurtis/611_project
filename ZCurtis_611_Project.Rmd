@@ -96,18 +96,15 @@ In the overall dataset, qe can see here that alcohol and density are highly NEGA
 Yet when we split by wine type, we see some slightly different correlations. In the white wine correlation plot, we also see that residual sugar and density are highly correlated, and that free sulfur dioxide and total sulfur dioxide and moderately positively correlated. 
 
 In the red wine correlation plot, fixed acidity and pH are highly negatively correlated, which makes sense, but it is curious that this does not appear in the white wine data set. It could be that white wines have higher or more basic acidity, so this trend is not being detected. 
-# FIND A BETTER WAY TO REPRESENT THIS, does not show what I predicted though 
 ```{r}
-mean(red$fixed.acidity)
-mean(white$fixed.acidity)#lower acidity than red 
-mean(red$pH)
-mean(white$pH) #similar pHs though 
-range(red$fixed.acidity)
-range(white$fixed.acidity) #narrower range but not by much 
-range(red$pH)
-range(white$pH) #lower pH range, more acidic ... 
+ggplot(data=allwine, aes(x=fixed.acidity, y=pH, color=type))+
+  geom_point(alpha=0.4)
+ggplot(data=allwine, aes(x=fixed.acidity, fill=type))+
+  geom_density(alpha=0.4) #white wines do seem to have lower fixed acidity, thus red wines have higher range in acidity
+ggplot(data=allwine, aes(x=pH, fill=type))+
+  geom_density(alpha=0.4) #red wines do have higher pH as well 
 ```
-
+From these plots, we can see that red wine does seem to have higher fixed acidity and higher pH than white wines, which would be opposite of what we predicted. # EXPAND AND EXPLORE HERE 
   
 Additionally, total sulfur dioxide and free sulfur dioxide also highly correlated, which makes sense because they are different measures of the same thing. Moving forward, we could keep one, since using two highly correlated variables in many analyses is an issue.    
 
