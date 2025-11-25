@@ -68,46 +68,9 @@ densall<-ggplot(long_wine, aes(x = value, fill = type)) +
   theme(strip.text = element_text(face = "bold"))
 save_base_plot(densall, "density_plot.png")
 ```
-From this, we can see initially that red wines may have a higher pH, sulfates, and volatile acidity than white wines. White wines may have more variation in residual sugar and higher  sulfur dioxide than red wines.   
+From this, we can see initially that red wines may have a higher pH, sulfates, and volatile acidity than white wines. White wines may have more variation in residual sugar and higher sulfur dioxide than red wines.   
 
-# FIX ORDER OR VARS IN CORPLOTS!!!
-```{r corplot}
-# Correlation matrix
-mycor <- cor(allwine[,-1])
-dir.create("figures", showWarnings = FALSE)
-png("figures/corplot1.png", width = 8, height = 6, units = "in", res = 150)
-corrplot(mycor, type = "upper", order = "hclust", tl.col = "black")
-dev.off() 
-
-mycor2<-cor(white[,-1])
-dir.create("figures", showWarnings = FALSE)
-png("figures/corplotwhite.png", width = 8, height = 6, units = "in", res = 150)
-corrplot(mycor2, type = "upper", order = "hclust", tl.col = "black")
-dev.off()
-
-mycor3<-cor(red[,-1])
-dir.create("figures", showWarnings = FALSE)
-png("figures/corplotred.png", width = 8, height = 6, units = "in", res = 150)
-corrplot(mycor3, type = "upper", order = "hclust", tl.col = "black")
-dev.off()
-```
-In the overall dataset, qe can see here that alcohol and density are highly NEGATIVELY correlated, makes sense since the higher the alcohol content, the lower the density. 
-
-Yet when we split by wine type, we see some slightly different correlations. In the white wine correlation plot, we also see that residual sugar and density are highly correlated, and that free sulfur dioxide and total sulfur dioxide and moderately positively correlated. 
-
-In the red wine correlation plot, fixed acidity and pH are highly negatively correlated, which makes sense, but it is curious that this does not appear in the white wine data set. It could be that white wines have higher or more basic acidity, so this trend is not being detected. 
-```{r}
-ggplot(data=allwine, aes(x=fixed.acidity, y=pH, color=type))+
-  geom_point(alpha=0.4)
-ggplot(data=allwine, aes(x=fixed.acidity, fill=type))+
-  geom_density(alpha=0.4) #white wines do seem to have lower fixed acidity, thus red wines have higher range in acidity
-ggplot(data=allwine, aes(x=pH, fill=type))+
-  geom_density(alpha=0.4) #red wines do have higher pH as well 
-```
-From these plots, we can see that red wine does seem to have higher fixed acidity and higher pH than white wines, which would be opposite of what we predicted. # EXPAND AND EXPLORE HERE 
-  
-Additionally, total sulfur dioxide and free sulfur dioxide also highly correlated, which makes sense because they are different measures of the same thing. Moving forward, we could keep one, since using two highly correlated variables in many analyses is an issue.    
-
+We will proceed with a PCA to examine the contributions of chemical components to the variation across the whole data set. 
 ```{r PCA, include=TRUE}
 results<-prcomp(allwine[-1], center=TRUE, scale=TRUE)
 rx <- results$x
@@ -171,6 +134,153 @@ pcword<-ggplot(loadings, aes(x = PC1, y = PC2, label = variable)) +
 save_base_plot(pcword, "pcword.png")
 ```
 This plot is a more intuitive way of understanding the contributions of chemical compounds to the two PCs. We see PC1 has positive contributions from density, fixed acidity, chlorides, sulphates, and volatile acidity. PC2 on the other hand has positive contributions from every factor except quality, alcohol, and pH.   
+
+I am interested in how chemical components may differ by type, so I will look into correlation plots: 
+```{r corplot}
+# Correlation matrix
+mycor <- cor(allwine[,-1])
+dir.create("figures", showWarnings = FALSE)
+png("figures/corplotall.png", width = 8, height = 6, units = "in", res = 150)
+par(oma = c(0, 0, 3, 0))
+corrplot(mycor, type = "upper", tl.col = "black")
+title("Correlation Matrix for All Wine", outer=TRUE, cex.main = 1.4)
+dev.off() 
+
+mycor2<-cor(white[,-1])
+dir.create("figures", showWarnings = FALSE)
+png("figures/corplotwhite.png", width = 8, height = 6, units = "in", res = 150)
+par(oma = c(0, 0, 3, 0))
+corrplot(mycor2, type = "upper", tl.col = "black")
+title("Correlation Matrix for White Wine", outer=TRUE, cex.main = 1.4)
+dev.off()
+
+mycor3<-cor(red[,-1])
+dir.create("figures", showWarnings = FALSE)
+png("figures/corplotred.png", width = 8, height = 6, units = "in", res = 150)
+par(oma = c(0, 0, 3, 0))
+corrplot(mycor3, type = "upper", tl.col = "black")
+title("Correlation Matrix for Red Wine", outer=TRUE, cex.main = 1.4)
+dev.off()
+```
+In the overall dataset, we can see that alcohol and density are highly NEGATIVELY correlated, makes sense since the higher the alcohol content, the lower the density. Additionally, total sulfur dioxide and free sulfur dioxide also highly correlated, which makes sense because they are different measures of the same thing.
+
+Yet when we split by wine type, we see some different correlations. In the white wine correlation plot, we also see that residual sugar and density are highly correlated, and that free sulfur dioxide and total sulfur dioxide and moderately positively correlated. 
+
+In the red wine correlation plot, fixed acidity and pH are highly negatively correlated, which makes sense, but it is curious that this does not appear in the white wine data set. The free and total sulfur dioxide relationship remains, yet the density-alcohol correlation is smaller, there is a stronger positive relationship between fixed acidity and citric acid, and a positive relationship between fixed acidity and density, which do not really show up in the white wine data. 
+
+This indicates that the underlying relationship between variables is not the same for red and white wine, so I will do a PCA for red and white wine separately now to see if chemical components contribute to variation differently for the two types of wine: 
+```{r white pca}
+whiteresults<-prcomp(white[-1], center=TRUE, scale=TRUE)
+whiterx <- whiteresults$x
+whiterx_df <- as_tibble(whiterx) %>%
+  mutate(row = row_number()) %>%
+  pivot_longer(cols = -row, names_to = "pc", values_to = "value") %>%
+  mutate(pc = suppressWarnings(as.numeric(gsub("^[^0-9]*", "", pc))))
+
+summary(whiteresults)
+
+var_explained <- whiteresults$sdev^2 / sum(whiteresults$sdev^2)
+whitescree_df <- data.frame(
+  PC = 1:length(var_explained),
+  Variance = var_explained
+)
+
+scre<-ggplot(whitescree_df, aes(x = PC, y = Variance)) +
+  geom_line() +
+  geom_point() +
+  labs(
+    title = "White Wine Scree Plot: Variance Explained by Each PC",
+    y = "Proportion of Variance Explained"
+  ) +
+  scale_x_continuous(breaks = 1:ncol(white[-1])) +
+  theme_minimal()
+
+save_base_plot(scre, "white.screeplot.png") 
+
+scores <- as.data.frame(whiteresults$x[,1:2])
+scores$type <- white$type 
+
+pcplot<-ggplot(scores, aes(x = PC1, y = PC2)) +
+  geom_point(size = 1.5, alpha=0.3) +
+  #geom_text_repel(size = 3, max.overlaps = 50, color = "navy") +
+  theme_minimal() 
+save_base_plot(pcplot, "white.pcplot.png")
+
+whitepcs<-as.data.frame(whiteresults$rotation)[,1:2]
+whitepcs
+
+whiteloadings <- as.data.frame(whiteresults$rotation[, 1:2])
+whiteloadings$variable <- rownames(whiteloadings)
+```
+
+```{r red pca}
+redresults<-prcomp(red[-1], center=TRUE, scale=TRUE)
+redrx <- redresults$x
+redrx_df <- as_tibble(rx) %>%
+  mutate(row = row_number()) %>%
+  pivot_longer(cols = -row, names_to = "pc", values_to = "value") %>%
+  mutate(pc = suppressWarnings(as.numeric(gsub("^[^0-9]*", "", pc))))
+
+summary(redresults)
+
+var_explained <- redresults$sdev^2 / sum(redresults$sdev^2)
+scree_df <- data.frame(
+  PC = 1:length(var_explained),
+  Variance = var_explained
+)
+
+scre<-ggplot(scree_df, aes(x = PC, y = Variance)) +
+  geom_line() +
+  geom_point() +
+  labs(
+    title = "Red Wine Scree Plot: Variance Explained by Each PC",
+    y = "Proportion of Variance Explained"
+  ) +
+  scale_x_continuous(breaks = 1:ncol(red[-1])) +
+  theme_minimal()
+
+save_base_plot(scre, "red.screeplot.png") 
+
+redscores <- as.data.frame(redresults$x[,1:2])
+redscores$type <- red$type 
+
+pcplot<-ggplot(redscores, aes(x = PC1, y = PC2)) +
+  geom_point(size = 1.5, alpha=0.3) +
+  #geom_text_repel(size = 3, max.overlaps = 50, color = "navy") +
+  theme_minimal() 
+save_base_plot(pcplot, "red.pcplot.png")
+
+redpcs<-as.data.frame(redresults$rotation)[,1:2]
+redpcs
+
+redloadings <- as.data.frame(redresults$rotation[, 1:2])
+redloadings$variable <- rownames(loadings)
+```
+
+```{r}
+red_loadings <- as.data.frame(redresults$rotation[, 1:2])
+red_loadings$variable <- rownames(redloadings)
+red_loadings$type <- "Red"
+
+white_loadings <- as.data.frame(whiteresults$rotation[, 1:2])
+white_loadings$variable <- rownames(whiteloadings)
+white_loadings$type <- "White"
+
+# combine
+combined_loadings <- rbind(red_loadings, white_loadings)
+overlay_plot <- ggplot(combined_loadings,
+                       aes(x = PC1, y = PC2, label = variable, color = type)) +
+  geom_point(size = 3) +
+  geom_text_repel(size = 3, show.legend = FALSE) +
+  labs(title = "PCA Loadings for Red vs White Wines",
+       subtitle = "Comparison of variable contributions to PC1 & PC2") +
+  theme_minimal() +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "gray50") +
+  scale_color_manual(values = c("Red" = "#99000F", "White" = "#99CCFF"))
+
+overlay_plot
+```
 
 I am curious if we can use the chemical properties to predict alcohol content. I will do a LASSO regression, using 70% of the data to train the model, and test it on the other 30% of the data. 
 ```{r regnew}
