@@ -19,5 +19,5 @@ when this finishes running type (with password of your choice:
 go to http://localhost:8787 
 sign in with username "rstudio" and password set above 
 
-Then within the container, go to the terminal tab and type "cd "project"" to go to be in the correct directory. Then type "make" to produce output. To remove generated plots, do "make clean". Stop the container with "docker stop rstudio611" and then "docker rm rstudio611". 
+Then within the container, go to the terminal tab and type "cd "project"" to be in the correct directory. Then type "make" to produce output. To remove generated plots, do "make clean". Stop the container with "docker stop rstudio611" and then "docker rm rstudio611". 
 
