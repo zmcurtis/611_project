@@ -3,8 +3,8 @@ title: "611 Project--Wine Quality Analysis"
 author: "Zoe Curtis"
 date: "2025-09-30"
 output:
-  html_document: default
   pdf_document: default
+  html_document: default
 ---
 
 This analysis will explore a concatenated data set containing chemical components of red and white variants of the Portuguese "Vinho Verde" wine from 2009. It contains chemical components including fixed acidity, volatile acidity, citric acid, residual sugar, chlorides, free sulfur dioxide, total sulfur dioxide, density, pH, sulphates, and alcohol. It also contains a quality score. I am interested in exploring whether wine type (red vs white) differs in their chemical composition, and whether there is a quality difference between the types. I am also interested in using the chemical composition to predict alcohol levels.  
@@ -60,7 +60,7 @@ densall<-ggplot(long_wine, aes(x = value, fill = type)) +
     alpha = 0.6,
     position = "identity"
   ) +
-  facet_wrap(~ variable, scales = "free") +   # ← Changed from "free_x" to "free"
+  facet_wrap(~ variable, scales = "free") +  
   labs(
     y = "Density",
     x = "Value",
@@ -107,7 +107,6 @@ scores$type <- allwine$type
 
 pcplot<-ggplot(scores, aes(x = PC1, y = PC2, color=type)) +
   geom_point(size = 1.5, alpha=0.3) +
-  #geom_text_repel(size = 3, max.overlaps = 50, color = "navy") +
   theme_minimal() 
 pcplot
 save_base_plot(pcplot, "pcplot.png")
@@ -216,7 +215,6 @@ scores$type <- white$type
 
 pcplot<-ggplot(scores, aes(x = PC1, y = PC2)) +
   geom_point(size = 1.5, alpha=0.3, color="#99CCFF") +
-  #geom_text_repel(size = 3, max.overlaps = 50, color = "navy") +
   theme_minimal() 
 pcplot
 save_base_plot(pcplot, "white.pcplot.png")
@@ -261,7 +259,6 @@ redscores$type <- red$type
 
 pcplot<-ggplot(redscores, aes(x = PC1, y = PC2)) +
   geom_point(size = 1.5, alpha=0.3, color="#99000F") +
-  #geom_text_repel(size = 3, max.overlaps = 50, color = "navy") +
   theme_minimal() 
 pcplot
 save_base_plot(pcplot, "red.pcplot.png")
